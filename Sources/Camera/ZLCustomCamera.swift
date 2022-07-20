@@ -136,11 +136,11 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         if #available(iOS 13.0, *) {
             btn.setImage(UIImage(systemName: "photo.circle"), for: .normal)
         } else {
-            btn.setImage(getImage("zl_photo.circle"), for: .normal)
+            btn.setImage(.zl.getImage("zl_photo.circle"), for: .normal)
         }
         btn.addTarget(self, action: #selector(galleryBtnClick), for: .touchUpInside)
         btn.setImage(.zl.getImage("zl_arrow_down"), for: .normal)
-        btn.addTarget(self, action: #selector(dismissBtnClick), for: .touchUpInside)
+        //btn.addTarget(self, action: #selector(dismissBtnClick), for: .touchUpInside)
         btn.adjustsImageWhenHighlighted = false
         btn.enlargeInset = 30
         return btn

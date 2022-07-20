@@ -718,7 +718,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
             self?.selectedImages = images
             self?.selectedAssets = assets
             self?.isOriginal = isOriginal
-            self?.collectionView.reloadData()
+            // self?.collectionView.reloadData()
             debugPrint("\(images)   \(assets)   \(isOriginal)")
         }
         ac.cancelBlock = {

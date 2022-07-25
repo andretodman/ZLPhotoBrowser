@@ -725,14 +725,15 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
             self?.selectedImages = images
             self?.selectedAssets = assets
             self?.isOriginal = isOriginal
-            assets.first?.getURL(completionHandler: { responseURL in
-                self?.takeDoneBlock?(nil, responseURL)
-            })
-          //self?.collectionView.reloadData()
-            if assets == nil {
+            if assets.first?.mediaType == .video {
+                assets.first?.getURL(completionHandler: { responseURL in
+                    self?.takeDoneBlock?(nil, responseURL)
+                })
+            }
+            if assets.first?.mediaType == .image {
                 self?.takeDoneBlock?(self?.selectedImages.first, nil)
             }
-         
+            
             debugPrint("\(images)   \(assets)   \(isOriginal)")
         }
         ac.cancelBlock = {

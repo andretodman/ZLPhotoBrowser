@@ -312,7 +312,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     override open func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if !UIImagePickerController.isSourceTypeAvailable(.camera) {
-            // showAlertAndDismissAfterDoneAction(message: localLanguageTextValue(.cameraUnavailable), type: .camera)
+             showAlertAndDismissAfterDoneAction(message: localLanguageTextValue(.cameraUnavailable), type: .camera)
         } else if !ZLPhotoConfiguration.default().allowTakePhoto, !ZLPhotoConfiguration.default().allowRecordVideo {
 #if DEBUG
             fatalError("Error configuration of camera")
@@ -725,7 +725,14 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
             self?.selectedImages = images
             self?.selectedAssets = assets
             self?.isOriginal = isOriginal
-            // self?.collectionView.reloadData()
+            assets.first?.getURL(completionHandler: { responseURL in
+                self?.takeDoneBlock?(nil, responseURL)
+            })
+          //self?.collectionView.reloadData()
+            if assets == nil {
+                self?.takeDoneBlock?(self?.selectedImages.first, nil)
+            }
+         
             debugPrint("\(images)   \(assets)   \(isOriginal)")
         }
         ac.cancelBlock = {
@@ -813,9 +820,13 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         recordVideoPlayerLayer?.player?.pause()
         // 置为nil会导致卡顿，先注释，不影响内存释放
         //        self.recordVideoPlayerLayer?.player = nil
-        dismiss(animated: true) {
+        
+        self.takeDoneBlock?(self.takedImage, self.videoUrl)
+        
+        //ZL Original
+        /*dismiss(animated: true) {
             self.takeDoneBlock?(self.takedImage, self.videoUrl)
-        }
+        }*/
     }
     
     // 点击拍照
@@ -1173,5 +1184,31 @@ extension ZLCustomCamera: UIGestureRecognizerDelegate {
         }.filter { $0 == true }
         
         return result.count > 0
+    }
+}
+
+extension PHAsset {
+
+    func getURL(completionHandler : @escaping ((_ responseURL : URL?) -> Void)){
+        if self.mediaType == .image {
+            let options: PHContentEditingInputRequestOptions = PHContentEditingInputRequestOptions()
+            options.canHandleAdjustmentData = {(adjustmeta: PHAdjustmentData) -> Bool in
+                return true
+            }
+            self.requestContentEditingInput(with: options, completionHandler: {(contentEditingInput: PHContentEditingInput?, info: [AnyHashable : Any]) -> Void in
+                completionHandler(contentEditingInput!.fullSizeImageURL as URL?)
+            })
+        } else if self.mediaType == .video {
+            let options: PHVideoRequestOptions = PHVideoRequestOptions()
+            options.version = .original
+            PHImageManager.default().requestAVAsset(forVideo: self, options: options, resultHandler: {(asset: AVAsset?, audioMix: AVAudioMix?, info: [AnyHashable : Any]?) -> Void in
+                if let urlAsset = asset as? AVURLAsset {
+                    let localVideoUrl: URL = urlAsset.url as URL
+                    completionHandler(localVideoUrl)
+                } else {
+                    completionHandler(nil)
+                }
+            })
+        }
     }
 }

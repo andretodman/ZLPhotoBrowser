@@ -27,6 +27,7 @@
 import UIKit
 import AVFoundation
 import CoreMotion
+import Photos
 
 open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     enum Layout {
@@ -41,13 +42,21 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         static let smallCircleRecordScale: CGFloat = 0.7
     }
     
+    var collectionView: UICollectionView!
+    
+    var selectedImages: [UIImage] = []
+    
+    var selectedAssets: [PHAsset] = []
+    
+    var isOriginal = false
+    
     @objc public var takeDoneBlock: ((UIImage?, URL?) -> Void)?
     
     @objc public var cancelBlock: (() -> Void)?
     
     public lazy var tipsLabel: UILabel = {
         let label = UILabel()
-        label.font = getFont(14)
+        label.font = .zl.font(ofSize: 14)
         label.textColor = .white
         label.textAlignment = .center
         label.numberOfLines = 2
@@ -101,7 +110,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     
     public lazy var retakeBtn: ZLEnlargeButton = {
         let btn = ZLEnlargeButton(type: .custom)
-        btn.setImage(getImage("zl_retake"), for: .normal)
+        btn.setImage(.zl.getImage("zl_retake"), for: .normal)
         btn.addTarget(self, action: #selector(retakeBtnClick), for: .touchUpInside)
         btn.isHidden = true
         btn.adjustsImageWhenHighlighted = false
@@ -122,10 +131,16 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         return btn
     }()
     
-    public lazy var dismissBtn: ZLEnlargeButton = {
+    public lazy var galleryBtn: ZLEnlargeButton = {
         let btn = ZLEnlargeButton(type: .custom)
-        btn.setImage(getImage("zl_arrow_down"), for: .normal)
-        btn.addTarget(self, action: #selector(dismissBtnClick), for: .touchUpInside)
+        if #available(iOS 13.0, *) {
+            btn.setImage(UIImage(systemName: "photo.circle"), for: .normal)
+        } else {
+            btn.setImage(.zl.getImage("zl_photo.circle"), for: .normal)
+        }
+        btn.addTarget(self, action: #selector(galleryBtnClick), for: .touchUpInside)
+        btn.setImage(.zl.getImage("zl_arrow_down"), for: .normal)
+        //btn.addTarget(self, action: #selector(dismissBtnClick), for: .touchUpInside)
         btn.adjustsImageWhenHighlighted = false
         btn.enlargeInset = 30
         return btn
@@ -135,7 +150,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         let cameraCount = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .unspecified).devices.count
         
         let btn = ZLEnlargeButton(type: .custom)
-        btn.setImage(getImage("zl_toggle_camera"), for: .normal)
+        btn.setImage(.zl.getImage("zl_toggle_camera"), for: .normal)
         btn.addTarget(self, action: #selector(switchCameraBtnClick), for: .touchUpInside)
         btn.adjustsImageWhenHighlighted = false
         btn.enlargeInset = 30
@@ -144,7 +159,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     }()
     
     public lazy var focusCursorView: UIImageView = {
-        let view = UIImageView(image: getImage("zl_focus"))
+        let view = UIImageView(image: .zl.getImage("zl_focus"))
         view.contentMode = .scaleAspectFit
         view.clipsToBounds = true
         view.frame = CGRect(x: 0, y: 0, width: 70, height: 70)
@@ -297,13 +312,13 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     override open func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if !UIImagePickerController.isSourceTypeAvailable(.camera) {
-            showAlertAndDismissAfterDoneAction(message: localLanguageTextValue(.cameraUnavailable), type: .camera)
+             showAlertAndDismissAfterDoneAction(message: localLanguageTextValue(.cameraUnavailable), type: .camera)
         } else if !ZLPhotoConfiguration.default().allowTakePhoto, !ZLPhotoConfiguration.default().allowRecordVideo {
-            #if DEBUG
-                fatalError("Error configuration of camera")
-            #else
-                showAlertAndDismissAfterDoneAction(message: "Error configuration of camera", type: nil)
-            #endif
+#if DEBUG
+            fatalError("Error configuration of camera")
+#else
+            showAlertAndDismissAfterDoneAction(message: "Error configuration of camera", type: nil)
+#endif
         } else if cameraConfigureFinish, viewDidAppearCount == 0 {
             showTipsLabel(animate: true)
             let animation = getFadeAnimation(fromValue: 0, toValue: 1, duration: 0.15)
@@ -346,15 +361,25 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         let smallCircleH = ZLCustomCamera.Layout.smallCircleRadius
         smallCircleView.frame = CGRect(x: (view.bounds.width - smallCircleH) / 2, y: (ZLCustomCamera.Layout.bottomViewH - smallCircleH) / 2, width: smallCircleH, height: smallCircleH)
         
-        dismissBtn.frame = CGRect(x: 60, y: (ZLCustomCamera.Layout.bottomViewH - 25) / 2, width: 25, height: 25)
+        galleryBtn.frame = CGRect(x: 60, y: (ZLCustomCamera.Layout.bottomViewH - 25) / 2, width: 25, height: 25)
         
-        let tipsTextHeight = (tipsLabel.text ?? " ").zl.boundingRect(font: getFont(14), limitSize: CGSize(width: view.bounds.width - 20, height: .greatestFiniteMagnitude)).height
+        let tipsTextHeight = (tipsLabel.text ?? " ").zl
+            .boundingRect(
+                font: .zl.font(ofSize: 14),
+                limitSize: CGSize(width: view.bounds.width - 20, height: .greatestFiniteMagnitude)
+            )
+            .height
         tipsLabel.frame = CGRect(x: 10, y: bottomView.frame.minY - tipsTextHeight, width: view.bounds.width - 20, height: tipsTextHeight)
         
         retakeBtn.frame = CGRect(x: 30, y: insets.top + 10, width: 28, height: 28)
         switchCameraBtn.frame = CGRect(x: view.bounds.width - 30 - 28, y: insets.top + 10, width: 28, height: 28)
         
-        let doneBtnW = localLanguageTextValue(.done).zl.boundingRect(font: ZLLayout.bottomToolTitleFont, limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 40)).width + 20
+        let doneBtnW = localLanguageTextValue(.done).zl
+            .boundingRect(
+                font: ZLLayout.bottomToolTitleFont,
+                limitSize: CGSize(width: CGFloat.greatestFiniteMagnitude, height: 40)
+            )
+            .width + 20
         let doneBtnY = view.bounds.height - 57 - insets.bottom
         doneBtn.frame = CGRect(x: view.bounds.width - doneBtnW - 20, y: doneBtnY, width: doneBtnW, height: ZLLayout.bottomToolBtnH)
     }
@@ -366,7 +391,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         view.addSubview(focusCursorView)
         view.addSubview(tipsLabel)
         view.addSubview(bottomView)
-        bottomView.addSubview(dismissBtn)
+        bottomView.addSubview(galleryBtn)
         bottomView.addSubview(largeCircleView)
         bottomView.addSubview(smallCircleView)
         
@@ -559,9 +584,8 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     }
     
     private func showNoMicrophoneAuthorityAlert() {
-        let alert = UIAlertController(title: nil, message: String(format: localLanguageTextValue(.noMicrophoneAuthority), getAppName()), preferredStyle: .alert)
-        let continueAction = UIAlertAction(title: localLanguageTextValue(.keepRecording), style: .default, handler: nil)
-        let gotoSettingsAction = UIAlertAction(title: localLanguageTextValue(.gotoSettings), style: .default) { _ in
+        let continueAction = ZLCustomAlertAction(title: localLanguageTextValue(.keepRecording), style: .default, handler: nil)
+        let gotoSettingsAction = ZLCustomAlertAction(title: localLanguageTextValue(.gotoSettings), style: .tint) { _ in
             guard let url = URL(string: UIApplication.openSettingsURLString) else {
                 return
             }
@@ -569,22 +593,18 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
             }
         }
-        alert.addAction(continueAction)
-        alert.addAction(gotoSettingsAction)
-        zl.showAlertController(alert)
+        showAlertController(title: nil, message: String(format: localLanguageTextValue(.noMicrophoneAuthority), getAppName()), style: .alert, actions: [continueAction, gotoSettingsAction], sender: self)
     }
     
     private func showAlertAndDismissAfterDoneAction(message: String, type: ZLNoAuthorityType?) {
-        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        let action = UIAlertAction(title: localLanguageTextValue(.done), style: .default) { _ in
-            self.dismiss(animated: true) {
+        let action = ZLCustomAlertAction(title: localLanguageTextValue(.done), style: .default) { [weak self] _ in
+            self?.dismiss(animated: true) {
                 if let type = type {
                     ZLPhotoConfiguration.default().noAuthorityCallback?(type)
                 }
             }
         }
-        alert.addAction(action)
-        zl.showAlertController(alert)
+        showAlertController(title: nil, message: message, style: .alert, actions: [action], sender: self)
     }
     
     private func showTipsLabel(animate: Bool) {
@@ -656,9 +676,77 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         }
     }
     
-    @objc private func dismissBtnClick() {
-        dismiss(animated: true) {
-            self.cancelBlock?()
+    @objc private func galleryBtnClick() {
+        showImagePicker(false)
+    }
+    
+    func showImagePicker(_ preview: Bool) {
+        /**
+         // Custom UI
+         ZLPhotoUIConfiguration.default()
+         .navBarColor(.white)
+         .navViewBlurEffectOfAlbumList(nil)
+         .indexLabelBgColor(.black)
+         .indexLabelTextColor(.white)
+         */
+        
+        let editImageConfiguration = ZLPhotoConfiguration.default().editImageConfiguration
+        editImageConfiguration
+            .imageStickerContainerView(ImageStickerContainerView())
+        //            .tools([.draw, .filter, .adjust, .mosaic])
+        //            .adjustTools([.brightness, .contrast, .saturation])
+        //            .clipRatios([.custom, .circle, .wh1x1, .wh3x4, .wh16x9, ZLImageClipRatio(title: "2 : 1", whRatio: 2 / 1)])
+        //            .imageStickerContainerView(ImageStickerContainerView())
+        //            .filters([.normal, .process, ZLFilter(name: "custom", applier: ZLCustomFilter.hazeRemovalFilter)])
+        
+        ZLPhotoConfiguration.default()
+            .editImageConfiguration(editImageConfiguration)
+        // You can first determine whether the asset is allowed to be selected.
+            .canSelectAsset { asset in
+                return true
+            }
+            .noAuthorityCallback { type in
+                switch type {
+                case .library:
+                    debugPrint("No library authority")
+                case .camera:
+                    debugPrint("No camera authority")
+                case .microphone:
+                    debugPrint("No microphone authority")
+                }
+            }
+        //            .operateBeforeDoneAction { currVC, block in
+        //                // Do something before select photo result callback, and then call block to continue done action.
+        //                block()
+        //            }
+        
+        let ac = ZLPhotoPreviewSheet(selectedAssets:  [])
+        ac.selectImageBlock = { [weak self] (images, assets, isOriginal) in
+            self?.selectedImages = images
+            self?.selectedAssets = assets
+            self?.isOriginal = isOriginal
+            if assets.first?.mediaType == .video {
+                assets.first?.getURL(completionHandler: { responseURL in
+                    self?.takeDoneBlock?(nil, responseURL)
+                })
+            }
+            if assets.first?.mediaType == .image {
+                self?.takeDoneBlock?(self?.selectedImages.first, nil)
+            }
+            
+            debugPrint("\(images)   \(assets)   \(isOriginal)")
+        }
+        ac.cancelBlock = {
+            debugPrint("cancel select")
+        }
+        ac.selectImageRequestErrorBlock = { (errorAssets, errorIndexs) in
+            debugPrint("fetch error assets: \(errorAssets), error indexs: \(errorIndexs)")
+        }
+        
+        if preview {
+            ac.showPreview(animate: true, sender: self)
+        } else {
+            ac.showPhotoLibrary(sender: self)
         }
     }
     
@@ -732,10 +820,14 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     @objc private func doneBtnClick() {
         recordVideoPlayerLayer?.player?.pause()
         // 置为nil会导致卡顿，先注释，不影响内存释放
-//        self.recordVideoPlayerLayer?.player = nil
-        dismiss(animated: true) {
+        //        self.recordVideoPlayerLayer?.player = nil
+        
+        self.takeDoneBlock?(self.takedImage, self.videoUrl)
+        
+        //ZL Original
+        /*dismiss(animated: true) {
             self.takeDoneBlock?(self.takedImage, self.videoUrl)
-        }
+        }*/
     }
     
     // 点击拍照
@@ -893,7 +985,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         guard !movieFileOutput.isRecording else {
             return
         }
-        dismissBtn.isHidden = true
+        galleryBtn.isHidden = true
         let connection = movieFileOutput.connection(with: .video)
         connection?.videoScaleAndCropFactor = 1
         if !restartRecordAfterSwitchCamera {
@@ -950,7 +1042,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         if session.isRunning {
             showTipsLabel(animate: true)
             bottomView.isHidden = false
-            dismissBtn.isHidden = false
+            galleryBtn.isHidden = false
             switchCameraBtn.isHidden = false
             retakeBtn.isHidden = true
             doneBtn.isHidden = true
@@ -959,7 +1051,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         } else {
             hideTipsLabel(animate: false)
             bottomView.isHidden = true
-            dismissBtn.isHidden = true
+            galleryBtn.isHidden = true
             switchCameraBtn.isHidden = true
             retakeBtn.isHidden = false
             doneBtn.isHidden = false
@@ -1070,7 +1162,7 @@ extension ZLCustomCamera: AVCaptureFileOutputRecordingDelegate {
                         self?.videoUrl = nil
                         showAlertView(error.localizedDescription, self)
                     }
-
+                    
                     self?.recordUrls.forEach { try? FileManager.default.removeItem(at: $0) }
                     self?.recordUrls.removeAll()
                 }
@@ -1089,9 +1181,35 @@ extension ZLCustomCamera: UIGestureRecognizerDelegate {
         
         let result = gesTuples.map { ges1, ges2 in
             (ges1 == gestureRecognizer && ges2 == otherGestureRecognizer) ||
-                (ges2 == otherGestureRecognizer && ges1 == gestureRecognizer)
+            (ges2 == otherGestureRecognizer && ges1 == gestureRecognizer)
         }.filter { $0 == true }
         
         return result.count > 0
+    }
+}
+
+extension PHAsset {
+
+    func getURL(completionHandler : @escaping ((_ responseURL : URL?) -> Void)){
+        if self.mediaType == .image {
+            let options: PHContentEditingInputRequestOptions = PHContentEditingInputRequestOptions()
+            options.canHandleAdjustmentData = {(adjustmeta: PHAdjustmentData) -> Bool in
+                return true
+            }
+            self.requestContentEditingInput(with: options, completionHandler: {(contentEditingInput: PHContentEditingInput?, info: [AnyHashable : Any]) -> Void in
+                completionHandler(contentEditingInput!.fullSizeImageURL as URL?)
+            })
+        } else if self.mediaType == .video {
+            let options: PHVideoRequestOptions = PHVideoRequestOptions()
+            options.version = .original
+            PHImageManager.default().requestAVAsset(forVideo: self, options: options, resultHandler: {(asset: AVAsset?, audioMix: AVAudioMix?, info: [AnyHashable : Any]?) -> Void in
+                if let urlAsset = asset as? AVURLAsset {
+                    let localVideoUrl: URL = urlAsset.url as URL
+                    completionHandler(localVideoUrl)
+                } else {
+                    completionHandler(nil)
+                }
+            })
+        }
     }
 }

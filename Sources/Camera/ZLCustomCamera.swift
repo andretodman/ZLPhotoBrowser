@@ -330,8 +330,8 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     
     override open func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        motionManager?.stopDeviceMotionUpdates()
-        motionManager = nil
+        //motionManager?.stopDeviceMotionUpdates()
+        //motionManager = nil
     }
     
     override open func viewDidDisappear(_ animated: Bool) {

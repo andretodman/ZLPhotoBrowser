@@ -333,6 +333,9 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         //motionManager?.stopDeviceMotionUpdates()
         //motionManager = nil
         recordVideoPlayerLayer?.player?.pause()
+        recordVideoPlayerLayer?.player = nil
+        previewLayer = nil
+        previewLayer = nil
     }
     
     override open func viewDidDisappear(_ animated: Bool) {
@@ -820,6 +823,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
     
     @objc private func doneBtnClick() {
         recordVideoPlayerLayer?.player?.pause()
+        
         // 置为nil会导致卡顿，先注释，不影响内存释放
         //        self.recordVideoPlayerLayer?.player = nil
         

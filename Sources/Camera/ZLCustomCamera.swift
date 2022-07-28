@@ -332,6 +332,7 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
         super.viewWillDisappear(animated)
         //motionManager?.stopDeviceMotionUpdates()
         //motionManager = nil
+        recordVideoPlayerLayer?.player?.pause()
     }
     
     override open func viewDidDisappear(_ animated: Bool) {

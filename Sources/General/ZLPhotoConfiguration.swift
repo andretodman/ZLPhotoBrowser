@@ -204,10 +204,10 @@ public class ZLPhotoConfiguration: NSObject {
     }
     
     /// Maximum cropping time when editing video, unit: second. Defaults to 10.
-    @objc public var maxEditVideoTime: Second = 10
+    @objc public var maxEditVideoTime: Second = 600
     
     /// Allow to choose the maximum duration of the video. Defaults to 120.
-    @objc public var maxSelectVideoDuration: Second = 120
+    @objc public var maxSelectVideoDuration: Second = 600
     
     /// Allow to choose the minimum duration of the video. Defaults to 0.
     @objc public var minSelectVideoDuration: Second = 0
@@ -278,7 +278,7 @@ public class ZLPhotoConfiguration: NSObject {
         }
     }
     
-    private var pri_maxRecordDuration: Second = 10
+    private var pri_maxRecordDuration: Second = 600
     /// Maximum recording duration. Defaults to 10, minimum is 1.
     @objc public var maxRecordDuration: Second {
         get {

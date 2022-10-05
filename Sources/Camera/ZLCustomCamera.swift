@@ -841,6 +841,10 @@ open class ZLCustomCamera: UIViewController, CAAnimationDelegate {
             return
         }
         
+        guard imageOutput != nil else{
+            return
+        }
+        
         let connection = imageOutput.connection(with: .video)
         connection?.videoOrientation = orientation
         if videoInput?.device.position == .front, connection?.isVideoMirroringSupported == true {

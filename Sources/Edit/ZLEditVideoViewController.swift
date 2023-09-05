@@ -63,7 +63,7 @@ public class ZLEditVideoViewController: UIViewController {
         return layer
     }()
     
-    private lazy var collectionView: UICollectionView = {
+    public lazy var collectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.itemSize = ZLEditVideoViewController.frameImageSize
         layout.minimumLineSpacing = 0
